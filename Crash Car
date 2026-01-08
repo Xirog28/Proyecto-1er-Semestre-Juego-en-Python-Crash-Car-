@@ -1,0 +1,170 @@
+# Importamos las bibliotecas necesarias
+import tkinter as tk  # Para crear la interfaz principal del menú
+import pygame  # Para programar el juego principal
+import sys  # Para realizar operaciones relacionadas con el sistema
+import random  # Para generar valores aleatorios, como la posición de obstáculos
+import threading  # Para ejecutar el juego en un hilo separado mientras el menú sigue funcionando
+
+# Usamos la función pygame para que el juego inicie bien
+pygame.init()
+
+# Clase para definir el personaje principal del juego
+class Personaje:
+    def __init__(self, x, y): 
+        # Se define el tamaño y la posición inicial del personaje
+        self.forma = pygame.Rect(x, y, 30, 70)
+    def dibujo(self, interfaz):
+        # Se dibuja el personaje en pantalla usando un rectángulo amarillo
+        pygame.draw.rect(interfaz, (225, 225, 0), self.forma) 
+
+# Clase para definir los obstáculos del juego
+class Obstaculo:
+    def __init__(self, x, y):
+        # Se define el tamaño y posición inicial de los obstáculos
+        self.forma = pygame.Rect(x, y, 30, 80) 
+    def dibujo(self, interfaz):
+        # Se dibujan los obstáculos en pantalla con un rectángulo rojo
+        pygame.draw.rect(interfaz, (255, 0, 0), self.forma)  
+    def mover(self, velocidad):
+        # Los obstáculos se mueven hacia abajo en la pantalla
+        self.forma.y += velocidad
+        if self.forma.y > 600:  # Cuando el obstáculo sale de la pantalla
+            # Se reposiciona en la parte superior con coordenadas aleatorias
+            self.forma.y = random.randint(-300, -50)
+            self.forma.x = random.randint(60, 470)
+
+# Función para iniciar el juego con Pygame
+def iniciar_juego():
+    screen = pygame.display.set_mode((600, 800))  # Configura el tamaño de la ventana del juego
+    pygame.display.set_caption("Crash Cars - Juego")  # Título de la ventana del juego
+
+    # Colores usados en el juego definidos en formato RGB
+    gris = (100, 100, 100)  # Color de la carretera
+    verde = (76, 208, 56)  # Fondo verde
+    blanco = (255, 255, 255)  # Líneas de la carretera
+    amarillo = (255, 232, 0)  # Bordes amarillos de la carretera
+
+    # Configuración de la velocidad del juego y las líneas de la carretera
+    velocidad = 18
+    anc_jue = 10  # Ancho de las líneas de la carretera
+    lar_jue = 50  # Largo de las líneas de la carretera
+    road = (50, 0, 450, 800)  # Dimensiones de la carretera
+
+    # Posición inicial de las líneas amarillas (bordes)
+    linea_izq_amarilla = (50, 0, anc_jue, 800)
+    linea_dere_amarilla = (500, 0, anc_jue, 800)
+
+    # Posición de las líneas centrales blancas
+    linea_izq = 180
+    linea_centro = 280
+    linea_der = 380
+    movi_lineas = 200  # Movimiento vertical inicial de las líneas
+
+    # Crear el personaje en la posición inicial
+    jugador = Personaje(200, 500)
+
+    # Crear una lista de obstáculos con posiciones iniciales aleatorias
+    obstaculos = [Obstaculo(random.randint(60, 470), -100 * i) for i in range(1, 6)]
+
+    # Configuración del contador de tiempo
+    fuente_contador = pygame.font.Font(None, 36)  # Estilo y tamaño de fuente para el puntaje
+    tiempo_inicial = pygame.time.get_ticks()  # Tiempo inicial al comenzar el juego
+
+    # Bucle principal del juego
+    clock = pygame.time.Clock()  # Para controlar los FPS
+    fps = 30  # Velocidad de actualización del juego
+    jugando = True  # Variable para controlar si el jugador sigue en el juego
+    while jugando:
+        clock.tick(fps)  # Limita la velocidad del bucle para mantener los FPS
+        for event in pygame.event.get():  # Detecta eventos como teclas presionadas
+            if event.type == pygame.QUIT:  # Si se cierra la ventana
+                jugando = False
+            elif event.type == pygame.KEYDOWN:  # Si se presiona una tecla
+                if event.key == pygame.K_RIGHT:  # Movimiento del personaje a la derecha
+                    jugador.forma.x += 75
+                elif event.key == pygame.K_LEFT:  # Movimiento del personaje a la izquierda
+                    jugador.forma.x -= 75
+        # Limitar al personaje para que no salga de la carretera
+        if jugador.forma.x < 60:    
+            jugador.forma.x = 60 
+        elif jugador.forma.x > 480:
+            jugador.forma.x = 480
+
+        screen.fill(verde)  # Rellena el fondo de verde
+        pygame.draw.rect(screen, gris, road)  # Dibuja la carretera
+        pygame.draw.rect(screen, amarillo, linea_izq_amarilla)  # Dibuja borde izquierdo
+        pygame.draw.rect(screen, amarillo, linea_dere_amarilla)  # Dibuja borde derecho
+
+        # Dibuja las líneas blancas centrales
+        for y in range(lar_jue * -2, 800, lar_jue * 2):
+            pygame.draw.rect(screen, blanco, (linea_izq, y + movi_lineas, anc_jue, lar_jue))
+            pygame.draw.rect(screen, blanco, (linea_centro, y + movi_lineas, anc_jue, lar_jue))
+            pygame.draw.rect(screen, blanco, (linea_der, y + movi_lineas, anc_jue, lar_jue))
+
+        # Mueve las líneas blancas hacia abajo
+        movi_lineas += velocidad
+        if movi_lineas >= lar_jue * 2:  # Reinicia el movimiento al llegar al límite
+            movi_lineas = 0
+
+        jugador.dibujo(screen)  # Dibuja el personaje en la pantalla
+        
+        for obstaculo in obstaculos:  # Recorre todos los obstáculos
+            obstaculo.mover(velocidad)  # Mueve el obstáculo
+            obstaculo.dibujo(screen)  # Lo dibuja
+            if jugador.forma.colliderect(obstaculo.forma):  # Verifica si hay colisión
+                jugando = False  # Termina el juego si hay colisión
+
+        tiempo_transcurrido = (pygame.time.get_ticks() - tiempo_inicial) // 1000  # Calcula el tiempo jugado
+        texto_contador = fuente_contador.render(f"puntuacion: {tiempo_transcurrido} points", True, blanco)  # Muestra el tiempo
+        screen.blit(texto_contador, (10, 10))  # Coloca el texto en pantalla
+        pygame.display.flip()  # Actualiza la pantalla
+            
+    pygame.quit()  # Sale del juego al terminar
+
+# Funciones para las opciones del menú de Tkinter
+def opcion_1():
+    # Inicia el juego y muestra un mensaje
+    mensaje["text"] = "Iniciando el juego"
+    threading.Thread(target=iniciar_juego).start()  # Inicia el juego en un hilo separado
+
+def opcion_2():
+    # Muestra las reglas del juego en la interfaz
+    mensaje["text"] = ("Reglas del juego:\n"
+                       "El ganador se definirá por su agilidad y rapidez, evitando obstáculos como otros autos.\n"
+                       "El jugador iniciará la carrera con tres vidas y perderá una al chocar.\n"
+                       "Si pierde todas las vidas, el juego se reinicia.")
+
+def opcion_3():
+    # Cierra la aplicación
+    ventana.quit()
+
+# Crear la ventana principal de tkinter
+ventana = tk.Tk()
+ventana.title("CRASH CARS")  # Título de la ventana principal
+ventana.geometry("600x600")  # Tamaño de la ventana
+ventana.config(bg="black")  # Color de fondo negro
+
+# Etiqueta de bienvenida
+bienvenida = tk.Label(ventana, text="Bienvenido a Crash Cars", font=("impact", 20), bg="black", fg="white")
+bienvenida.pack(pady=10)
+
+# Comentario sobre las opciones
+Comment_1 = tk.Label(ventana, text="Por favor, seleccione una opción", font=("impact", 14), bg="black", fg="white")
+Comment_1.pack(pady=10)
+
+# Área de texto donde aparecerán los mensajes
+mensaje = tk.Label(ventana, text="", font=("arial", 12), justify="left", bg="black", fg="white")
+mensaje.pack(pady=10)
+
+# Botones para opciones del menú
+boton_opcion_1 = tk.Button(ventana, text="1. INICIAR JUEGO", command=opcion_1)  # Botón para iniciar el juego
+boton_opcion_1.pack(pady=10)
+
+boton_opcion_2 = tk.Button(ventana, text="2. MOSTRAR REGLAS DEL JUEGO", command=opcion_2)  # Botón para mostrar reglas
+boton_opcion_2.pack(pady=10)
+
+boton_opcion_3 = tk.Button(ventana, text="3. SALIR", command=opcion_3)  # Botón para salir
+boton_opcion_3.pack(pady=10)
+
+# Ejecuta el bucle principal de la ventana
+ventana.mainloop()
